@@ -74,7 +74,7 @@ class FormDivedeLearner:
         mac_out = th.stack(mac_out, dim=1)  # Concat over time
 
         # Pick the Q-Values for the actions taken by each agent
-        # 给他的动作选取Q 值
+      
         chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
         ind_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)
 
@@ -86,7 +86,7 @@ class FormDivedeLearner:
             target_mac_out.append(target_agent_outs)
 
         # We don't need the first timesteps Q-Value estimate for calculating targets
-        # 计算个体target ind
+       
         target_ind_q = th.stack(target_mac_out[:-1], dim=1)  #### For Q value s
         target_mac_out = th.stack(target_mac_out[1:], dim=1)  # Concat across time
 
@@ -110,21 +110,18 @@ class FormDivedeLearner:
 
         # Mix
         if self.mixer is not None:
-            # 这里将联合动作奖励和目标动作奖励分解
-            # 单个智能体q值也同样需要梯度
+            
             chosen_action_qvals_clone = chosen_action_qvals.clone().detach()
             chosen_action_qvals_clone.requires_grad = True
             target_max_qvals_clone = target_max_qvals.clone().detach()
-            # chosen_action_q_tot_val 是选取动作之后的联合q值
-            # target_max_q_tot_vals 是联合动作的目标q值
-            chosen_action_q_tot_vals = self.mixer(chosen_action_qvals_clone, batch["state"][:, :-1])  # 进行了修改
-            target_max_q_tot_vals = self.target_mixer(target_max_qvals_clone, batch["state"][:, 1:])  # 进行了修改没有使用clone值
+            
+            chosen_action_q_tot_vals = self.mixer(chosen_action_qvals_clone, batch["state"][:, :-1]) 
+            target_max_q_tot_vals = self.target_mixer(target_max_qvals_clone, batch["state"][:, 1:])  
             goal_target_max_qvals = self.target_mixer(target_ind_qvals, batch["state"][:, :-1])
 #####################################################################################################
         q_ind_tot_list = []
         for i in range(self.n_agents):
-            # 这里标记多智能体的q value 和q tot， 将这些值送往神经网络
-            # 首先打印了解这些变量的数据结构， target_qtot_per_agent  and target_ind_qvals 其中i对应智能体
+            
             target_qtot_per_agent = (goal_target_max_qvals / self.n_agents).squeeze()
             q_ind_tot_list.append(self.alpha * target_ind_qvals[:, :, i] + (1 - self.alpha) * target_qtot_per_agent)
 
@@ -204,15 +201,14 @@ class FormDivedeLearner:
         masked_td_error = td_error * mask
 
         # Normal L2 loss, take mean over actual data
-        # mixer的loss是一样的 第一条为设置的神经网络的输出
         mix_explore_distance_loss = mix_explore_distance_losses.mean()
         mixer_loss = (masked_td_error ** 2).sum() / mask.sum()  + 0.001*self.mix*mix_explore_distance_loss
 
         # Optimise
         self.mixer_optimiser.zero_grad()
-        # 单个智能体q值的梯度
+
         chosen_action_qvals_clone.retain_grad()  # the grad of qi
-        # tot的q值梯度
+       
         chosen_action_q_tot_vals.retain_grad()  # the grad of qtot
         mixer_loss.backward()
 
@@ -228,8 +224,7 @@ class FormDivedeLearner:
         q_rewards_clone = q_rewards.clone().detach()
         #print("the shape of q_rewards_clone is: ",q_rewards.shape)
 
-        # Calculate 1-step Q-Learning targets    0.001*self.lam*intrinsic_rewards_ind行的
-        q_targets = q_rewards_clone + self.args.gamma * (1 - indi_terminated) * target_max_qvals  # (B,T,n_agents)   可能需要添加个体内部奖励
+        q_targets = q_rewards_clone + self.args.gamma * (1 - indi_terminated) * target_max_qvals  # (B,T,n_agents) 
 
         # Td-error
         q_td_error = (chosen_action_qvals - q_targets.detach())  # (B,T,n_agents)
