@@ -212,6 +212,8 @@ class FormDivedeLearner:
         chosen_action_q_tot_vals.retain_grad()  # the grad of qtot
         mixer_loss.backward()
 
+
+
         grad_l_qtot = chosen_action_q_tot_vals.grad.repeat(1, 1, self.args.n_agents) + 1e-8
         grad_l_qi = chosen_action_qvals_clone.grad
         grad_qtot_qi = th.clamp(grad_l_qi / grad_l_qtot, min=-10, max=10)  # (B,T,n_agents)
